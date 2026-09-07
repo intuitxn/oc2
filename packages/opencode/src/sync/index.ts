@@ -1,4 +1,5 @@
 import z from "zod"
+import { Lamport } from "./lamport"
 import type { ZodObject } from "zod"
 import { EventEmitter } from "events"
 import { Database, eq } from "@/storage/db"
@@ -171,6 +172,10 @@ export namespace SyncEvent {
       throw new Error(`Unknown event type: ${event.type}`)
     }
 
+    // merge the remote Lamport clock so ordering survives node boundaries
+    const remoteClock = (event as Record<string, unknown>).clock
+    if (typeof remoteClock === "number") Lamport.merge(remoteClock)
+
     const row = Database.use((db) =>
       db
         .select({ seq: EventSequenceTable.seq })
@@ -218,8 +223,9 @@ export namespace SyncEvent {
           .where(eq(EventSequenceTable.aggregate_id, agg))
           .get()
         const seq = row?.seq != null ? row.seq + 1 : 0
+        const clock = Lamport.tick()
 
-        const event = { id, seq, aggregateID: agg, data }
+        const event = { id, seq, clock, aggregateID: agg, data }
         process(def, event, { publish })
       },
       {
@@ -238,6 +244,11 @@ export namespace SyncEvent {
   export function subscribeAll(handler: (event: { def: Definition; event: Event }) => void) {
     Bus.on("event", handler)
     return () => Bus.off("event", handler)
+  }
+
+  /** Current Lamport clock (event-based logical time). */
+  export function clock(): number {
+    return Lamport.now()
   }
 
   export function payloads() {

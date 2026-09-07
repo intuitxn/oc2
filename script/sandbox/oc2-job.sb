@@ -1,0 +1,43 @@
+; oc2-job.sb — sandbox for user-sourced opencode jobs.
+; Deny-by-default on writes and secret reads; everything else allowed so the
+; runtime, model APIs, git, and language toolchains work.
+; @WORKTREE@ is substituted per run by oc2-agent.sh.
+
+(version 1)
+
+(allow default)
+
+; --- writes: worktree + runtime dirs + temp only ---
+(deny file-write*)
+(allow file-write*
+  (subpath "@WORKTREE@")
+  (subpath "/private/tmp")
+  (subpath "/private/var/folders")
+  (subpath "/tmp")
+  (subpath "@STATE@")
+)
+
+; --- secrets: never readable, never writable ---
+(deny file-read*
+  (subpath "/Users/a3fckxmini/.ssh")
+  (subpath "/Users/a3fckxmini/.gnupg")
+  (subpath "/Users/a3fckxmini/.aws")
+  (subpath "/Users/a3fckxmini/.config/gcloud")
+  (subpath "/Users/a3fckxmini/.buzz")
+  (subpath "/Users/a3fckxmini/.git-credentials")
+  (subpath "/Users/a3fckxmini/.netrc")
+  (subpath "/Users/a3fckxmini/.hermes")
+  (subpath "/Users/a3fckxmini/.codex")
+  (subpath "/Users/a3fckxmini/.claude")
+  (regex #"^/Users/a3fckxmini/\.[^/]*history$")
+  (regex #"\.env($|\.|$)")
+)
+(deny file-write*
+  (subpath "/Users/a3fckxmini/.ssh")
+  (subpath "/Users/a3fckxmini/.buzz")
+  (subpath "/Users/a3fckxmini/.hermes")
+)
+
+; --- limits: a job may not manage this node's files ---
+; (writes above are already confined; signals between the job's own children
+;  are allowed so normal process management inside the job works)
