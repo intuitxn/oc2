@@ -42,8 +42,10 @@ gen() {
   "runtime": {
     "version": "2.0.0",
     "source_rev": "$REV",
+    "binary_rev": "$REV",
     "source": "https://github.com/anomalyco/opencode",
     "binary": "/dist/opencode-darwin-arm64",
+    "update": "labs release — owner publishes; member nodes pull the binary + bundle",
     "fallback": "git clone the source, then: OPENCODE_CHANNEL=local OPENCODE_VERSION=2.0.0 bun run --cwd packages/opencode build"
   },
   "install": "curl -fsSL https://labs.intuitxn.com/join/oc2-join.sh | sh",

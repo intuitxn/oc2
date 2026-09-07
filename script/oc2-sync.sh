@@ -12,6 +12,11 @@ TIER="$(cat "$HOME/.oc2/tier" 2>/dev/null || echo member)"
 HASH="$STATE/team-bundle.sha256"
 
 mkdir -p "$STATE" "$HOME/.oc2"
+
+# owner machine: the source checkout is the source of truth — updates flow
+# out from here (oc2-team.sh publish), never in from the public bundle.
+[ -d "$HOME/opencode2/packages/opencode/src" ] && exit 0
+
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -38,6 +43,29 @@ fi
 cp -R "$TMP/profile/opencode/." "$PROFILE/opencode/"
 cp -R "$TMP/script/." "$HOME/opencode2/script/"
 echo "$BUNDLE_SHA" > "$HASH"
+
+# binary release: if the manifest's binary_rev moved, pull the labs release,
+# verify, swap, bounce. Update flow: owner pushes from the intuitxn labs release.
+NEW_REV="$(python3 -c "import json;print(json.load(open('$TMP/team.json'))['runtime']['binary_rev'])" 2>/dev/null || true)"
+OLD_REV="$(cat "$STATE/binary-rev" 2>/dev/null || echo none)"
+if [ -n "$NEW_REV" ] && [ "$NEW_REV" != "$OLD_REV" ]; then
+  BIN="$TMP/opencode-darwin-arm64"
+  curl -fsSL -m 600 -o "$BIN" "$LABS/dist/opencode-darwin-arm64" || exit 0
+  chmod +x "$BIN"
+  if "$BIN" --version >/dev/null 2>&1; then
+    # member install: ~/.oc2/bin/opencode is the real file (dist path is a
+    # symlink to it); owner install: the dist path is the real file.
+    TARGET="$HOME/.oc2/bin/opencode"
+    [ -f "$TARGET" ] || TARGET="$HOME/opencode2/packages/opencode/dist/opencode-darwin-arm64/bin/opencode"
+    mv "$BIN" "$TARGET"
+    echo "$NEW_REV" > "$STATE/binary-rev"
+    echo "$(date '+%F %T') binary updated -> $NEW_REV" >> "$STATE/team-sync.log"
+    sh "$HOME/opencode2/script/oc2-node.sh" stop >/dev/null 2>&1 || true
+    launchctl kickstart -k "gui/$(id -u)/intuitxn.oc2-node" 2>/dev/null || true
+  else
+    echo "$(date '+%F %T') refused release $NEW_REV: failed --version" >> "$STATE/team-sync.log"
+  fi
+fi
 
 sh "$HOME/opencode2/script/oc2-node.sh" stop >/dev/null 2>&1 || true
 sh "$HOME/opencode2/script/oc2-gateway.sh" stop >/dev/null 2>&1 || true
