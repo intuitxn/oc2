@@ -11,10 +11,11 @@ let version = 0
 const folded = new Set()
 const drafts = new Map()
 const session = (id) => data.sessions.find((item) => item.id === id)
+const active = (item) => !!item?.busy || ['starting', 'working', 'permission', 'resuming'].includes(item?.status)
 async function api(path, body) {
   const response = await fetch(path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {})
   const result = await response.json()
-  if (!response.ok) throw new Error(result.error || 'The manager could not complete that action.')
+  if (!response.ok) throw new Error(result.error || 'OpenCode ACP could not complete that action.')
   return result
 }
 function error(message = '') { $('error').textContent = message; $('error').hidden = !message }
@@ -38,7 +39,7 @@ function tree() {
     seen.add(s.id)
     const children = matches.filter((item) => data.parents[item.id] === s.id)
     const closed = folded.has('chat:' + s.id)
-    const markup = `<button class="row ${escape(s.status)} ${s.id === selected && !creating ? 'selected' : ''}" data-session="${escape(s.id)}" aria-current="${s.id === selected && !creating ? 'true' : 'false'}"><span aria-hidden="true">${'│ '.repeat(level)}${children.length ? closed ? '▸' : '▾' : ' '}</span><span class="signal">${s.status === 'working' ? '●' : s.status === 'waiting' ? '!' : s.status === 'dead' ? '×' : '·'}</span><span class="name">${escape(s.name || s.id)}</span><span class="state">${escape(s.status || 'unknown')}</span></button>`
+    const markup = `<button class="row ${escape(s.status)} ${s.id === selected && !creating ? 'selected' : ''}" data-session="${escape(s.id)}" aria-current="${s.id === selected && !creating ? 'true' : 'false'}"><span aria-hidden="true">${'│ '.repeat(level)}${children.length ? closed ? '▸' : '▾' : ' '}</span><span class="signal">${s.status === 'working' ? '●' : ['waiting', 'permission'].includes(s.status) ? '!' : s.status === 'dead' ? '×' : '·'}</span><span class="name">${escape(s.name || s.id)}</span><span class="state">${escape(s.status || 'unknown')}</span></button>`
     return markup + (closed && !query ? '' : children.map((child) => row(child, level + 1)).join(''))
   }
   const tops = matches.filter((s) => !keys.has(data.parents[s.id]) || s.id === root)
@@ -60,21 +61,20 @@ function tree() {
     const waiting = members.filter((s) => s.status === 'waiting').length
     return `<button class="row group" data-group="${escape(path)}" aria-expanded="${!closed}"><span>${'│ '.repeat(level)}${closed ? '▸' : '▾'}</span><span class="name">${escape(path.split('/').pop())}/</span><small>${waiting ? waiting + ' waiting · ' : ''}${members.length}</small></button>` + (closed && !query ? '' : (groups.get(path) || []).map((s) => row(s, level + 1)).join('') + [...paths].filter((p) => p.slice(0, p.lastIndexOf('/')) === path && p.includes('/')).sort().map((p) => group(p, level + 1)).join(''))
   }
-  const markup = (groups.get('') || []).map((s) => row(s, 0)).join('') + [...paths].filter((p) => !p.includes('/')).sort().map((p) => group(p, 0)).join('') || `<p class="no-results">${query ? 'No matching chats.' : data.error ? 'Manager unavailable. Your chats stay in Agent Manager.' : root ? 'No chats in this view.' : 'No chats here yet. Type a prompt below to start.'}</p>`
+  const markup = (groups.get('') || []).map((s) => row(s, 0)).join('') + [...paths].filter((p) => !p.includes('/')).sort().map((p) => group(p, 0)).join('') || `<p class="no-results">${query ? 'No matching chats.' : data.error ? 'OpenCode ACP unavailable. Stored sessions remain available after reconnection.' : root ? 'No chats in this view.' : 'No chats here yet. Type a prompt below to start.'}</p>`
   if ($('tree').innerHTML !== markup) $('tree').innerHTML = markup
   $('scope').textContent = root ? 'root / ' + (session(root)?.name || root) : ''
   $('count').textContent = matches.length + ' chats' + (root ? ' in this root' : '')
   $('archived').classList.toggle('active', archived)
 }
 function remember() { drafts.set(creating ? 'new:' + parent : selected, $('prompt').value) }
-function composer() {
-  const s = session(selected)
+function composer(s = session(selected)) {
   $('options').hidden = !creating
   $('target').textContent = creating ? 'new chat / ' + (session(parent)?.name || 'root') : 'reply / ' + (s?.name || selected)
   $('send').textContent = creating ? 'start ↵' : 'send ↵'
-  $('hint').textContent = creating ? parent ? 'Fresh conversation under this chat. Uses its working directory.' : 'Starts a real agent in your manager. Named from the work.' : 'Sent through Agent Manager; queued while the agent is busy.'
+  $('hint').textContent = creating ? parent ? 'Fresh conversation under this chat. Uses its working directory.' : 'Starts a persistent OpenCode ACP session. Named from the work.' : 'Sent directly to the OpenCode ACP session.'
   $('prompt').placeholder = creating ? 'What should we work on?' : 'Reply to this chat…'
-  $('send').disabled = busy || (!creating && (!s?.running || s?.archived))
+  $('send').disabled = busy || (!creating && (!s?.running || s?.archived || active(s)))
   $('prompt').disabled = !creating && (!s?.running || s?.archived)
 }
 function blank() {
@@ -83,6 +83,9 @@ function blank() {
   $('meta').textContent = parent ? 'parent ' + parent + ' · fresh conversation' : 'Any chat can be a root. Groups are paths, not separate products.'
   $('focus').hidden = true
   $('child').hidden = true
+  $('session-cancel').hidden = true
+  $('session-resume').hidden = true
+  permissions = []; requests()
   $('conversation').innerHTML = '<div class="empty"><h1>One sentence.<br>Pick up the work.</h1><p>No setup ceremony. Type what you need below.<br>Names and groups keep the work navigable.</p><p class="keys">n new chat &nbsp; / find &nbsp; ↵ send</p></div>'
 }
 function create(id = '') {
@@ -116,11 +119,16 @@ async function read() {
   if (bottom) pane.scrollTop = pane.scrollHeight
   $('focus').hidden = false
   $('child').hidden = false
-  composer()
+  $('session-cancel').hidden = !active(s)
+  $('session-cancel').disabled = !active(s)
+  $('session-resume').hidden = active(s) || (!!s?.running && !['interrupted', 'error', 'errored', 'cancelled'].includes(s?.status))
+  permissions = (result.permissions || []).map((request) => ({ ...request, id: request.id ?? request.request, toolCall: request.toolCall ?? request.tool })); requests()
+  composer(s)
 }
 async function select(id) {
   remember()
   selected = id
+  permissions = []; requests()
   creating = false
   parent = ''
   history.replaceState(null, '', '#' + encodeURIComponent(id))
@@ -135,7 +143,7 @@ async function refresh() {
   data = await api('/api/workspace')
   error(data.error || '')
   $('connection').textContent = data.error ? 'disconnected' : '● local / live'
-  $('summary').textContent = `agent-manager / ${data.sessions.filter((s) => s.status === 'working').length} working · ${data.sessions.filter((s) => s.status === 'waiting').length} waiting`
+  $('summary').textContent = `OpenCode ACP / ${data.sessions.filter((s) => s.status === 'working').length} working · ${data.sessions.filter((s) => s.status === 'waiting').length} waiting`
   tree()
   if (!creating) await read()
 }
@@ -167,12 +175,12 @@ $('composer').onsubmit = async (event) => {
   const owner = parent
   busy = true; composer(); error()
   try {
-    const result = await api('/api/manager/' + (draft ? 'spawn' : 'send'), draft ? { prompt, tool: $('tool').value, group: $('group').value, parent: owner } : { prompt, session: target })
+    const result = await api('/api/acp/' + (draft ? 'spawn' : 'send'), draft ? { prompt, tool: 'opencode', group: $('group').value, parent: owner } : { prompt, session: target })
     drafts.delete(draft ? 'new:' + owner : target)
     $('prompt').value = ''
     await refresh()
     if (draft && result.id) await select(result.id)
-    $('receipt').textContent = draft ? 'Agent started in Agent Manager.' : 'Message accepted by Agent Manager. It will be delivered when the session is ready.'
+    $('receipt').textContent = draft ? 'OpenCode ACP session started.' : 'Message accepted by OpenCode ACP.'
   } catch (err) { error(err.message) } finally { busy = false; composer() }
 }
 $('prompt').onkeydown = (event) => {
@@ -260,8 +268,8 @@ $('work-toggle').onclick = async () => {
   const opened = $('work').hidden
   $('work').hidden = !opened
   $('work-toggle').setAttribute('aria-expanded', String(opened))
-  for (const id of ['conversation', 'composer', 'meta', 'receipt']) $(id).hidden = opened
-  if (!opened) return
+  for (const id of ['conversation', 'composer', 'meta', 'receipt', 'permissions']) $(id).hidden = opened
+  if (!opened) { requests(); return }
   if (!$('work-repo').value) $('work-repo').value = session(selected)?.directory || ''
   try { await catalog() } catch (err) { warning(err.message) }
 }
@@ -298,7 +306,7 @@ $('work-controls').onclick = async (event) => {
   if (['checkpoint', 'fork', 'merge-context'].includes(action) && !context) { warning('Select and enter the context to carry into this operation.'); return }
   if (action === 'fork' && !$('work-fork-objective').value.trim()) { warning('Give the fork a concrete objective.'); return }
   if (action === 'merge-context' && !$('work-source').value.trim()) { warning('Enter the source work ID for the accepted decisions.'); return }
-  const payload = action === 'merge-context' ? { source: $('work-source').value.trim(), text: context } : action === 'checkpoint' ? { text: context } : action === 'fork' ? { context, objective: $('work-fork-objective').value.trim() } : action === 'link' ? { session: $('work-link').value.trim() } : action === 'start' ? { tool: $('work-runtime').value, parent: selected || '' } : ['approve', 'land'].includes(action) ? { digest } : {}
+  const payload = action === 'merge-context' ? { source: $('work-source').value.trim(), text: context } : action === 'checkpoint' ? { text: context } : action === 'fork' ? { context, objective: $('work-fork-objective').value.trim() } : action === 'link' ? { session: $('work-link').value.trim() } : action === 'start' ? { tool: 'opencode', parent: selected || '' } : ['approve', 'land'].includes(action) ? { digest } : {}
   pending = true; warning(); buttons()
   try {
     const result = await api('/api/ops/' + encodeURIComponent(id) + '/' + action, payload)
@@ -345,3 +353,32 @@ async function program(action) {
 }
 $('program-compile').onclick = () => program('compile')
 $('program-run').onclick = () => program('run')
+
+let permissions = []
+let rendered = null
+const deciding = new Set()
+function requests() {
+  const pane = $('permissions')
+  pane.hidden = !permissions.length || !$('work').hidden
+  const markup = permissions.map((request, index) => `<div class="permission"><strong>Permission requested</strong><pre>${escape(request.toolCall?.title || request.title || 'The agent needs your decision to continue.')}</pre><details><summary>Request details</summary><pre>${escape(JSON.stringify(request.toolCall || request, null, 2))}</pre></details><div class="actions">${(request.options || []).map((option, choice) => `<button data-request="${index}" data-choice="${choice}" ${deciding.has(String(request.id)) ? 'disabled' : ''}>${escape(option.name || option.kind || option.optionId)}</button>`).join('')}</div></div>`).join('')
+  if (rendered !== markup) { pane.innerHTML = markup; rendered = markup }
+}
+$('permissions').onclick = async (event) => {
+  const button = event.target.closest('[data-request]')
+  if (!button || button.disabled) return
+  const request = permissions[Number(button.dataset.request)]
+  const option = request?.options?.[Number(button.dataset.choice)]
+  if (!request || !option) return
+  const id = String(request.id)
+  if (deciding.has(id)) return
+  deciding.add(id); requests(); error()
+  try {
+    await api('/api/acp/permission', { session: selected, request: request.id, option: option.optionId })
+    await read()
+  } catch (err) { error(err.message) } finally { deciding.delete(id); requests() }
+}
+for (const action of ['cancel', 'resume']) $('session-' + action).onclick = async () => {
+  const button = $('session-' + action)
+  button.disabled = true; error()
+  try { await api('/api/acp/' + action, { session: selected }); await refresh() } catch (err) { error(err.message) } finally { button.disabled = false }
+}

@@ -1,48 +1,33 @@
-# Intuitxn Labs
+# Intuitxn Labs — OpenCode ACP workspace
 
-The existing Labs UI is now a chat-first interface over Agent Manager. Open
-`http://127.0.0.1:4100` after running `sh script/oc2-labs.sh workspace`.
+Open http://127.0.0.1:4100. Labs starts OpenCode directly with `opencode acp --cwd <directory>` and speaks ACP v1 over newline-delimited JSON-RPC. Agent Manager and tmux are not dependencies. All new chats and scoped sessions use OpenCode.
 
-- One session tree, selected conversation, and inline prompt bar.
-- Names, statuses, group paths, and screen output come from Agent Manager.
-- Click a chat to read and reply. Replies go through the manager's delivery queue.
-- `+ chat` starts a real agent from one prompt, using Codex or OpenCode.
-- Group paths such as `labs/design` create nested navigation when spawning.
-- `make root` focuses the tree on any chat and its children; `/ root` returns.
-- `+ child` starts a **fresh conversation**, inheriting the selected chat's directory.
-  It does not fork or copy the parent's transcript. Parent links persist locally.
-- `n` starts a chat, `/` finds one, Space focuses the prompt; Enter sends and
-  Shift+Enter inserts a newline. Arrows navigate/fold the tree.
-- Archived is a read-only view. It does not stop or archive any running process.
+## Sessions
 
-No dashboard, product cards, mandatory task lifecycle, or creation dialogs.
-The earlier draft-thread data remains in SQLite for preservation, but is no longer
-the interaction model. Agent Manager owns sessions and message delivery; SQLite
-only adds parent navigation metadata for chats created through this interface.
+Start a chat with one prompt. Replies call `session/prompt`; assistant updates and tool activity are stored locally and displayed in the conversation. Tool permission requests show explicit choices in the UI. The ACP process requests permission for tools; Labs never automatically approves a request. Cancel interrupts the turn. Resume loads the existing OpenCode session with `session/load`; it does not repeat the previous prompt. Interrupted work requires an explicit new message.
 
-The server stays loopback-only with Host/Origin checks and a static asset allowlist.
-No runtime data is copied into the public Labs root. Public/shared deployment is
-not included. Agent Manager must be available in the server's environment.
+Each session has a dedicated ACP process, working directory, durable local ID, underlying OpenCode session ID and event history. Labs chooses the authenticated `opencode-go/deepseek-v4-flash` model. Credentials remain in the existing OpenCode profile; inherited secret environment variables are excluded from the process environment. The runtime can access local resources under its own existing profile and tool permissions; this is not an OS sandbox.
 
-Tests: `cd script/labs && python3 -m unittest -v`; client syntax: `node --check app.js`.
-Live read and navigation can be verified without sending prompts or spawning agents.
+The tree groups sessions by path and parent. `+ child` starts a fresh conversation in the parent's directory. Use work ops for an isolated worktree and selected context fork. Session replay on load is suppressed in Labs' event history to avoid duplicate output. Service restart marks an unfinished turn interrupted instead of resubmitting it. Existing Agent Manager metadata is retained in its old database tables and is not used for new sessions.
 
-## Scoped work, context and review
+## Scoped work and review
 
-Open **work ops** beside a conversation. Create a feature with an absolute repository path, objective, acceptance criteria, allowed file/directory paths and verification commands. Commands are explicit argument arrays, for example `[["npm","test"]]`; they execute locally with the user's authority. Work is isolated in a Git worktree. Scope validates candidate paths; it does not sandbox the agent or commands.
+Open **work ops** beside a conversation. Create a feature with an absolute repository path, objective, acceptance criteria, allowed relative paths and verification commands. Commands are argument arrays, e.g. `[["npm","test"]]`; they execute with the local user's authority. A work branch gets its own Git worktree. Scope validates candidate changes; it does not sandbox execution.
 
-Start scoped session attaches a real Agent Manager session to that worktree; its start receipt persists. Unknown delivery cannot spawn twice: link the matching worktree session to reconcile it. Resume operates on an existing stopped session. Session output remains owned by Agent Manager. A linked active/starting/waiting session blocks snapshot, verification and landing until it rests. Agent Manager process/session creation does not prove the agent executed its brief.
+**Start scoped session** sends the feature brief directly through ACP in that worktree. The durable binding prevents duplicate starts. An uncertain binding can be reconciled by linking the matching ACP worktree session. Resume loads a stopped bound session. Active turns and outstanding permissions block candidate verification and landing.
 
-Save selected context as a checkpoint. Fork creates a new worktree and objective from the parent's candidate or base, with explicitly selected context. Merge selected context appends an accepted selection with source-work, candidate and context-hash provenance; it does not copy the entire transcript. Export emits `labs.work-context/v1` selected context for transfer. There is no automatic remote executor or credential transfer.
+Save selected context as a checkpoint. Fork branches from the parent's candidate or base with selected context and a new objective. Merge selected decisions appends an accepted selection with source-work, candidate and context-hash provenance. Export emits `labs.work-context/v1`; remote execution and credential transfer are not implemented.
 
-Snapshot records a scoped candidate commit. Verify integrates it with the current target in a separate review worktree and runs the declared checks. At least one successful check is required; changed files or commits produced by checks invalidate verification. Inspect candidate and integration diffs plus receipts, check the review box, and approve the exact digest. Merge is a separate action and requires the same candidate, integration, target, review and a clean owning checkout on the target branch. No automatic push occurs. Approval denotes the local operator, not an authenticated multiuser signature or an agent's claim.
+Snapshot records a scoped candidate commit. Verify integrates it with the current target in an isolated review worktree and runs the configured checks. At least one successful check is required. Checks that alter the integration fail verification. Inspect candidate and integration diffs and receipts, then approve the exact digest. Merge is separate and requires the same candidate, integration, target and a clean owning checkout. No automatic push occurs. Approval means the local operator's action, not a multiuser signature or model claim.
 
-Conflicts retain the review worktree. Resolve and stage them there, then choose **verify resolved conflicts**, inspect the resulting integration and approve again. Stale code, changed targets and merged context invalidate review. This is bounded recovery with explicit review, not unrestricted autonomous merging. Labs serializes its own Git operations; unrelated external Git processes are outside its application lock. Don't concurrently mutate the target checkout during landing.
+Conflicts retain the integration worktree. Resolve and stage them there, then **verify resolved conflicts**, review and approve again. Changed code, moved targets and merged context invalidate reviews. Labs serializes its own operations; unrelated external Git processes are outside that lock.
 
-Nudge programs lists the installed `telepathy-program` catalog. Compile and Run call its allowlisted typed host. Inputs/results and receipts are visible; neither action publishes artifacts or activates learning changes. Artifact publication and reviewed learning activation remain in Telepathy.
+## Nudge and operation
 
-## Install and verification
+Nudge programs calls the installed `telepathy-program` catalog, compiler and allowlisted runner. These actions neither publish artifacts nor activate learning changes; those reviewed effects remain in Telepathy.
 
-`python3 script/labs/install.py` snapshots source into private runtime state and installs the `intuitxn.labs-workspace` user LaunchAgent on port 4100. Re-run after source changes. It binds to the current Agent Manager session environment; after replacing the manager instance, reinstall from that manager. The service runs after user login and is loopback-only. It is not exposed on the public Labs website.
+Run `python3 script/labs/install.py` to snapshot source into private runtime state and install the user LaunchAgent `intuitxn.labs-workspace`. Re-run after source changes. It starts after user login, listens on loopback port 4100, and does not depend on an active terminal manager. The public Labs website remains separate.
 
-Tests use real disposable repositories for scope, symlink rejection, hidden staged changes, stale candidates/targets, failed or mutating checks, conflict repair, selected context merge, and digest-bound landing. Manager command tests cover literal message delivery, worktree assignment and duplicate-start prevention. Browser verification on 2026-09-08 created an isolated feature, spawned a manager session, and reviewed a fixture candidate with a successful configured check. The spawned OpenCode session returned no screen output and its follow-up remained queued; it was stopped after verification. The fixture change was prepared by the test operator, not credited to that session.
+Run tests from this directory with `python3 -m unittest -v`; verify browser JavaScript with `node --check app.js`. Git tests use disposable repositories. ACP tests exercise framing, permissions, durable state and interrupted-turn behavior; live execution evidence should distinguish protocol success from model quality or human acceptance.
+
+Live verification on 2026-09-08: a browser-created chat returned `LABS_ACP_READY` through the installed OpenCode ACP process. After service restart, the same remote session loaded and accepted a new prompt with prior conversation preserved. The UI surfaced a real read permission and submitted an explicit rejection. Separate direct ACP probes verified both rejection and allow-once with completed tool execution. Twenty-seven tests passed, including five transport/session tests. Typed success is not a quality evaluation.

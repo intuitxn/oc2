@@ -8,12 +8,16 @@ from http.server import ThreadingHTTPServer
 
 from server import Handler, Workspace
 
+class Offline:
+    def list(self): raise ValueError("OpenCode unavailable")
+
+
 
 class WorkspaceTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.path = str(Path(self.temp.name) / 'workspace.sqlite')
-        self.workspace = Workspace(self.path, '/nonexistent-agent-manager')
+        self.workspace = Workspace(self.path, Offline())
 
     def tearDown(self):
         self.temp.cleanup()

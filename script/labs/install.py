@@ -20,9 +20,8 @@ release.mkdir(parents=True, exist_ok=True)
 for file in files:
     shutil.copyfile(file, release / file.name)
 env = {'HOME': str(Path.home()), 'PATH': str(Path.home()/'.local/bin') + ':/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin'}
-# Agent Manager routes commands through the existing manager session.
-for key in ('AGENT_MANAGER_SESSION_ID', 'TMUX', 'TMUX_PANE'):
-    if os.environ.get(key): env[key] = os.environ[key]
+# ACP processes inherit explicit runtime paths, never a terminal-manager session.
+env['INTUITXN_NETWORK'] = os.environ.get('INTUITXN_NETWORK', 'https://intuitxn.communities.buzz.xyz')
 args = ['/usr/bin/env', '-i'] + [k+'='+v for k,v in env.items()] + [str(Path(sys.executable).resolve()), str(release/'server.py'), '--database', str(state/'workspace.sqlite')]
 plist = Path.home()/'Library/LaunchAgents'/(label+'.plist')
 plist.write_bytes(plistlib.dumps({'Label':label, 'ProgramArguments':args, 'WorkingDirectory':str(release), 'RunAtLoad':True, 'KeepAlive':True, 'ThrottleInterval':10, 'StandardOutPath':str(state/'service.log'), 'StandardErrorPath':str(state/'service.log')}))
