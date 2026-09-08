@@ -82,6 +82,7 @@ case "${1:-}" in
   <key>KeepAlive</key><true/>
   <key>EnvironmentVariables</key><dict>
     <key>OPENCODE_SERVER_PASSWORD</key><string>$(cat "$PWFILE")</string>
+    <key>PATH</key><string>$HOME/.local/bin:$HOME/.hermes/node/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
   </dict>
   <key>StandardOutPath</key><string>$STATE/state/node-launchd.log</string>
   <key>StandardErrorPath</key><string>$STATE/state/node-launchd.log</string>

@@ -209,6 +209,9 @@ EOF
   </array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
+  <key>EnvironmentVariables</key><dict>
+    <key>PATH</key><string>$HOME/.local/bin:$HOME/.hermes/node/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
   <key>StandardOutPath</key><string>$STATE/labs-launchd.log</string>
   <key>StandardErrorPath</key><string>$STATE/labs-launchd.log</string>
 </dict></plist>
