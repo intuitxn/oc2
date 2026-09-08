@@ -181,6 +181,8 @@ case "${1:-}" in
 tunnel: $TID
 credentials-file: $CRED
 ingress:
+  - hostname: telepathy.intuitxn.com
+    service: http://127.0.0.1:4110
   - hostname: $HOSTNAME_PUBLIC
     service: http://127.0.0.1:$PORT
   - service: http_status:404
