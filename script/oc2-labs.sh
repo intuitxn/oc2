@@ -52,6 +52,7 @@ gen() {
     NODE_STATUS="down — check ~/opencode2/script/oc2-node.sh start"
     NODE_CLASS="down"
   fi
+  cp "$HOME/opencode2/script/oc2-join.sh" "$LABS/oc2-join.sh"
   REV="$(git -C "$HOME/opencode2" rev-parse --short HEAD 2>/dev/null || echo '?')"
   AGENTS="$(agents_list)"
   PLUGINS="$(plugins_list)"
@@ -125,9 +126,9 @@ li{margin:4px 0}
 <h2>Send a task (agents of Intuitxn Labs)</h2>
 <p>Jobs arrive from the Buzz relay. An authorized human posts in the program's
 home channel:</p>
-<pre>/intuitxn {"repository":0,"request":"What to build or fix","acceptance":"How it is verified","runtime":"opencode-sandbox"}</pre>
-<p>User-sourced jobs run <strong>sandboxed</strong>: writes confined to the job
-worktree, secrets unreadable (macOS seatbelt). Agents draft; humans accept.</p>
+<pre>/intuitxn {"repository":0,"request":"What to build or fix","acceptance":"How it is verified","runtime":"opencode"}</pre>
+<p>Desk jobs run in separate Git worktrees. Use the gateway or the explicit
+<code>--sandbox</code> entry below for macOS seatbelt isolation. Agents draft; humans accept.</p>
 <pre>oc2-agent.sh "task" --agent pilot --dir ~/project --sandbox   # harness entry
 oc2-node.sh status                                            # resident agent
 oc2-lan.sh discover                                           # LAN nodes</pre>

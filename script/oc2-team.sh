@@ -72,7 +72,7 @@ pack() {
   mkdir -p "$BUNDLE_ROOT/profile" "$BUNDLE_ROOT/script/sandbox"
   cp -R "$PROFILE" "$BUNDLE_ROOT/profile/opencode"
   rm -rf "$BUNDLE_ROOT/profile/opencode/node_modules"
-  cp "$REPO"/script/oc2-node.sh "$REPO"/script/oc2-gateway.py "$REPO"/script/oc2-gateway.sh \
+  cp "$REPO"/script/oc2-network.sh "$REPO"/script/oc2-node.sh "$REPO"/script/oc2-gateway.py "$REPO"/script/oc2-gateway.sh \
      "$REPO"/script/oc2-lan.sh "$REPO"/script/oc2-agent.sh "$REPO"/script/oc2-update.sh \
      "$REPO"/script/oc2-ship.sh "$REPO"/script/oc2-ship-stop.sh "$BUNDLE_ROOT/script/"
   cp "$REPO"/script/sandbox/oc2-job.sb "$BUNDLE_ROOT/script/sandbox/"

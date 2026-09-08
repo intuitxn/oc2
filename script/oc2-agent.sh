@@ -12,6 +12,7 @@
 # --node routes through the resident node (http://127.0.0.1:4096) instead of
 # spawning a fresh local server.
 set -eu
+. "$(dirname "$0")/oc2-network.sh"
 
 OC2="$HOME/opencode2/packages/opencode/dist/opencode-darwin-arm64/bin/opencode"
 SB_TEMPLATE="$HOME/opencode2/script/sandbox/oc2-job.sb"

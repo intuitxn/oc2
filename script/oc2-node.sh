@@ -7,6 +7,7 @@
 # `install` registers a macOS LaunchAgent (RunAtLoad + KeepAlive) so the node
 # literally is always there: one agent, always.
 set -eu
+. "$(dirname "$0")/oc2-network.sh"
 
 PORT=4096
 OC2="$HOME/opencode2/packages/opencode/dist/opencode-darwin-arm64/bin/opencode"
@@ -82,6 +83,7 @@ case "${1:-}" in
   <key>KeepAlive</key><true/>
   <key>EnvironmentVariables</key><dict>
     <key>OPENCODE_SERVER_PASSWORD</key><string>$(cat "$PWFILE")</string>
+    <key>INTUITXN_NETWORK</key><string>$(printf '%s' "$INTUITXN_NETWORK" | sed 's/\&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')</string>
     <key>PATH</key><string>$HOME/.local/bin:$HOME/.hermes/node/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
   </dict>
   <key>StandardOutPath</key><string>$STATE/state/node-launchd.log</string>
