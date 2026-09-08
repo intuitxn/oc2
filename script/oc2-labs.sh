@@ -1,6 +1,7 @@
 #!/bin/sh
 # oc2-labs: the simplest live surface for Intuitxn Labs.
 #
+#   oc2-labs.sh workspace   open the private product/thread workspace on :4100
 #   oc2-labs.sh gen         regenerate index.html from live node state
 #   oc2-labs.sh serve       serve labs/ on 127.0.0.1:4098
 #   oc2-labs.sh publish     named cloudflared tunnel -> labs.intuitxn.com
@@ -85,12 +86,12 @@ li{margin:4px 0}
 <h2>Agent nodes</h2>
 <table><tr><th>Node</th><th>JTBD</th><th>Charter</th></tr>
 <tr><td><code>telepathy</code> (primary)</td><td>route</td><td>Routes intent to the narrowest node; owns the routing memory</td></tr>
-<tr><td><code>prime</code></td><td>propose, scope</td><td>Human intent → reviewable job proposal</td></tr>
-<tr><td><code>build</code></td><td>implement, verify</td><td>Tested candidate + evidence, in worktree</td></tr>
-<tr><td><code>steward</code></td><td>resolve, project, learn</td><td>Receipts, changelog, lessons</td></tr>
-<tr><td><code>research</code></td><td>research</td><td>Evidence-backed dossiers with source maps</td></tr>
-<tr><td><code>relationships</code></td><td>draft-external</td><td>Reviewed external-conversation drafts</td></tr>
-<tr><td><code>ship</code></td><td>ship, go-live, demo</td><td>Anything → public URL in seconds, then draft announcement</td></tr>
+<tr><td><code>atlas</code></td><td>propose, scope</td><td>Human intent → reviewable job proposal</td></tr>
+<tr><td><code>forge</code></td><td>implement, verify</td><td>Tested candidate + evidence, in worktree</td></tr>
+<tr><td><code>ledger</code></td><td>resolve, project, learn</td><td>Receipts, changelog, lessons</td></tr>
+<tr><td><code>scout</code></td><td>research</td><td>Evidence-backed dossiers with source maps</td></tr>
+<tr><td><code>diplomat</code></td><td>draft-external</td><td>Reviewed external-conversation drafts</td></tr>
+<tr><td><code>pilot</code></td><td>ship, go-live, demo</td><td>Anything → public URL in seconds, then draft announcement</td></tr>
 </table>
 <p style="color:#5b6672;font-size:13px">charter files: $AGENTS</p>
 
@@ -109,7 +110,7 @@ li{margin:4px 0}
 <h2>Gateway (LAN intake)</h2>
 <table>
 <tr><th>Status</th><td>http://127.0.0.1:4099 → LAN :4099 — token auth, job queue, sandboxed execution</td></tr>
-<tr><th>Submit</th><td><code>curl -X POST -H "authorization: Bearer \$OC2_TOKEN" -d '{"task":"...","dir":"...","agent":"ship"}' http://node:4099/job</code></td></tr>
+<tr><th>Submit</th><td><code>curl -X POST -H "authorization: Bearer \$OC2_TOKEN" -d '{"task":"...","dir":"...","agent":"pilot"}' http://node:4099/job</code></td></tr>
 <tr><th>Poll</th><td><code>GET /job/&lt;id&gt;</code> → queued | running | done | error + output</td></tr>
 <tr><th>Platforms</th><td>buzz adapter pending relay identity (hermes gateway still owns live platform connections); LAN HTTP live today</td></tr>
 </table>
@@ -127,7 +128,7 @@ home channel:</p>
 <pre>/intuitxn {"repository":0,"request":"What to build or fix","acceptance":"How it is verified","runtime":"opencode-sandbox"}</pre>
 <p>User-sourced jobs run <strong>sandboxed</strong>: writes confined to the job
 worktree, secrets unreadable (macOS seatbelt). Agents draft; humans accept.</p>
-<pre>oc2-agent.sh "task" --agent ship --dir ~/project --sandbox   # harness entry
+<pre>oc2-agent.sh "task" --agent pilot --dir ~/project --sandbox   # harness entry
 oc2-node.sh status                                            # resident agent
 oc2-lan.sh discover                                           # LAN nodes</pre>
 
@@ -157,6 +158,10 @@ HTMLEOF
 }
 
 case "${1:-}" in
+  workspace)
+    shift
+    exec python3 "$(dirname "$0")/labs/server.py" "$@"
+    ;;
   gen) gen ;;
   serve)
     ensure_dirs
@@ -226,7 +231,7 @@ EOF
     exec "$0" run
     ;;
   *)
-    echo "usage: oc2-labs.sh gen|serve|publish|stop|install|run" >&2
+    echo "usage: oc2-labs.sh workspace [--port PORT]|gen|serve|publish|stop|install|run" >&2
     exit 1
     ;;
 esac

@@ -30,7 +30,7 @@ human (buzz) ──> buzz network (relay)
                     │  /intuitxn jobs + thread replies
                     v
         opencode2 node (this machine)
-          primary: @telepathy ── routes ──> @prime @build @steward @research @relationships
+          primary: @telepathy ── routes ──> @atlas @forge @ledger @scout @diplomat @pilot
           plugins: nodes | runtimes | buzz | updates | nudge
                     │
                     ├─ runtime: opencode (self, default)
